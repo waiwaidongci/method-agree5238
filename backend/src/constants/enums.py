@@ -14,3 +14,20 @@ class QualificationMode(StrEnum):
 class QualificationStatus(StrEnum):
     DRAFT="draft"
     APPROVED="approved"
+class MergeSide(StrEnum):
+    REFERENCE="reference"
+    CANDIDATE="candidate"
+class MergeEventKind(StrEnum):
+    READING="reading"
+    WITHDRAWAL="withdrawal"
+class MergeEventState(StrEnum):
+    STAGED="staged"
+    APPLIED="applied"
+    QUARANTINED="quarantined"
+    DUPLICATE="duplicate"
+class MergeSpecimenStatus(StrEnum):
+    WAITING="waiting"
+    PARTIAL="partial"
+    ACTIVE="active"
+    WITHDRAWN="withdrawn"
+    BLOCKED="blocked"

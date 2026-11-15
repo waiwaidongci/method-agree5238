@@ -58,13 +58,26 @@ JWT有效期8小时，密码带盐PBKDF2-SHA256。审计记录写入、批准、
 ## 六页与五实体
 
 - 比对总览：三种样本条件、最新差值图和研究摘要。
-- 仪器与样本：Instrument登记、PairDataset导入、PairedReading搜索分页。
+- 仪器与样本：Instrument登记、PairDataset导入、PairedReading搜索分页；同页“增量归并”视图处理两台仪器分开回传的读数/撤回（见下节）。
 - 建立研究：ComparisonRun的λ、范围、允许误差和bootstrap配置、队列列表。
 - 结果解释：双图、参数/界限CI、范围限制、逆校准试算。
 - 资格档案：Qualification提案、负责人批准、获批CSV。
 - 操作留痕：最近100条写入与交付记录。
 
 五实体各有model/schema/service/controller/route/前端API/Pinia store/页面链路。共用业务组件DatasetSelect、MethodSummary、AgreementPlot、RunTable；共用PageTitle/StatusBadge/ErrorNotice/EmptyState。useTask与usePolling隔离恢复与轮询行为。
+
+## 双侧增量归并与研究样本集冻结
+
+两台仪器分开回传，人工配对容易把撤回值与迟到记录混入研究。样本页“增量归并”视图以MergeChannel绑定两台仪器，回传按**试片号+侧+从v1连续递增的版本**归并，事件分为读数reading与撤回withdrawal，全部落库留痕。
+
+- **乱序暂存与连续推进**：版本缺口前的事件保持staged，补齐前版后自动按序推进（applied）；缺口与待补版本持久化，进程中断恢复后继续等待补齐。
+- **重复回传幂等**：自然键`(channel,side,sample_code,version)`去重，内容相同的重复回传记duplicate，不重复计入、不改变当前生效版本。
+- **同版异值隔离阻断**：同一版本收到不同载荷（读数异值、读数与撤回互斥）时首条事件转quarantined，该试片永久blocked，阻断原因保留双方载荷；阻断后的新回传一律隔离，需人工处置。
+- **撤回与旧版规则**：撤回事件推进后该侧无生效读数，试片进入withdrawn；严格旧版的重传按stale隔离，旧版不得复活撤回值或任何历史读数；撤回之后的更高版本读数可正常恢复。
+- **冻结不可变样本集**：单事务加锁冻结当前全部双侧完整配对为SampleSet，回传与冻结并发时每份样本集取同一时点的双侧状态；快照行保存双侧数值与版本号，后续补传不改变旧研究。未入选试片逐条写入SampleSetExclusion，原因分三类：`conflict`同版异值阻断、`missing_version`乱序暂存前版未补齐、`missing_side`单侧从未回传或该侧已撤回，并附两侧版本与暂存/隔离依据。
+- **恢复依据**：MergeSpecimen保存两侧当前生效版本、事件种类、数值与block_reason，MergeEvent保存全部暂存/生效/隔离事件；重启后待补版本、撤回历史与阻断依据均不丢失。
+
+对应实体：MergeChannel、MergeEvent、MergeSpecimen、SampleSet、SampleSetRow、SampleSetExclusion（schema v2，`backend/migrations/002_incremental_merge.sql`）。后端路由前缀`/merge`：通道CRUD、单条与批量事件、事件流查询、冻结、样本集明细与CSV导出；观察员只读、工程师与负责人可写。seed追加`N03 · 双侧增量回传演示`通道，覆盖完整/单侧/撤回/冲突/缺版与一份冻结样本集。
 
 ## 技术、环境与目录
 
@@ -96,4 +109,4 @@ JWT有效期8小时，密码带盐PBKDF2-SHA256。审计记录写入、批准、
 
 seed以邮箱、仪器code、数据集名、(dataset_id,sample_code)、研究名、资格标题作自然键，不覆盖已存在记录。3台仪器、3份各180对样本：稳定光源、系统偏差、宽范围异方差；3次λ=1研究与稳定光源限定资格。数值生成固定seed73，两侧均含测量噪声。
 
-测试、截图与TESTING记录位于批次根`test-artifacts/gb-0007/`。License：MIT，见LICENSE。
+测试、截图与TESTING记录位于批次根`test-artifacts/gb-0007/`。增量归并的本地行为测试位于`tests/test_merge_service.py`（SQLite内存库，40项服务规则）与`tests/test_merge_api.py`（TestClient鉴权/校验/并发冻结，21项），运行时需在仓库根设置`PYTHONPATH=backend`。License：MIT，见LICENSE。

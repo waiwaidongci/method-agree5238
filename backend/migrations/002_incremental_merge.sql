@@ -1,0 +1,11 @@
+-- Schema v2 增量（由 SQLAlchemy metadata 在本地启动时自动建表）。
+-- 双侧增量归并与研究样本集冻结：
+--   merge_channels            归并通道，绑定参考/候选两台仪器
+--   merge_events              单侧回传事件，自然键(channel_id,side,sample_code,version)
+--                             state: staged/applied/quarantined/duplicate
+--   merge_specimens           试片级当前生效版本、阻断依据；中断恢复的事实源
+--   sample_sets               冻结样本集头（冻结时点、缺侧/缺版/冲突汇总）
+--   sample_set_rows           冻结时点双侧读数快照，后续补传不改变
+--   sample_set_exclusions     未入选试片及原因：conflict/missing_version/missing_side
+-- 自然键：merge_channels.name、sample_sets.name。
+SELECT 'method-agree schema v2 (incremental merge)';

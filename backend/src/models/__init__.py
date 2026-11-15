@@ -5,3 +5,4 @@ from .dataset import PairDataset
 from .reading import PairedReading
 from .run import ComparisonRun
 from .qualification import Qualification
+from .merge import MergeChannel, MergeEvent, MergeSpecimen, SampleSet, SampleSetRow, SampleSetExclusion
